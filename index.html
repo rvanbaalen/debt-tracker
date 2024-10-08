@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debt Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-md">
+        <h1 class="text-3xl font-bold mb-6">Debt Tracker</h1>
+        
+        <form id="transactionForm" class="mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="party" class="block mb-2">Party:</label>
+                    <select id="party" class="w-full p-2 border rounded" required></select>
+                </div>
+                <div>
+                    <label for="date" class="block mb-2">Date:</label>
+                    <input type="date" id="date" class="w-full p-2 border rounded" required>
+                </div>
+                <div>
+                    <label for="description" class="block mb-2">Description:</label>
+                    <input type="text" id="description" class="w-full p-2 border rounded" required>
+                </div>
+                <div>
+                    <label for="amount" class="block mb-2">Amount:</label>
+                    <input type="number" id="amount" step="0.01" class="w-full p-2 border rounded" required>
+                </div>
+                <div>
+                    <label for="type" class="block mb-2">Type:</label>
+                    <select id="type" class="w-full p-2 border rounded" required>
+                        <option value="theyOwe">They Owe Me</option>
+                        <option value="iOwe">I Owe Them</option>
+                    </select>
+                </div>
+                <div class="flex items-end">
+                    <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition">Add Transaction</button>
+                </div>
+            </div>
+        </form>
+
+        <div class="mb-8 flex space-x-4">
+            <button id="exportBtn" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition">Export Data</button>
+            <label for="importFile" class="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600 transition cursor-pointer">
+                Import Data
+                <input type="file" id="importFile" class="hidden" accept=".json">
+            </label>
+            <button id="addPartyBtn" class="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 transition">Add New Party</button>
+        </div>
+
+        <div id="balances" class="mb-8">
+            <h2 class="text-2xl font-bold mb-4">Current Balances</h2>
+            <div id="balanceList" class="space-y-2 p-4 bg-gray-50 rounded-lg"></div>
+        </div>
+
+        <div id="transactions">
+            <h2 class="text-2xl font-bold mb-4">All Transactions</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full border-collapse">
+                    <thead>
+                        <tr class="bg-gray-200">
+                            <th class="p-2 text-left">Party</th>
+                            <th class="p-2 text-left">Date</th>
+                            <th class="p-2 text-left">Description</th>
+                            <th class="p-2 text-right">They Owe Me</th>
+                            <th class="p-2 text-right">I Owe Them</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transactionList"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for adding new party -->
+    <div id="partyModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Add New Party</h3>
+                <div class="mt-2 px-7 py-3">
+                    <input type="text" id="newPartyName" class="w-full px-3 py-2 border rounded-md" placeholder="Enter party name">
+                </div>
+                <div class="items-center px-4 py-3">
+                    <button id="addNewPartyBtn" class="px-4 py-2 bg-blue-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300">
+                        Add Party
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for updating party -->
+    <div id="updatePartyModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Update Party</h3>
+                <div class="mt-2 px-7 py-3">
+                    <select id="updatePartySelect" class="w-full px-3 py-2 border rounded-md"></select>
+                </div>
+                <div class="items-center px-4 py-3">
+                    <button id="updatePartyBtn" class="px-4 py-2 bg-blue-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300">
+                        Update Party
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let transactions = [];
+        let parties = [];
+
+        function setDefaultDate() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('date').value = today;
+        }
+
+        function addTransaction(event) {
+            event.preventDefault();
+            const transaction = {
+                party: document.getElementById('party').value,
+                date: document.getElementById('date').value,
+                description: document.getElementById('description').value,
+                amount: parseFloat(document.getElementById('amount').value),
+                type: document.getElementById('type').value
+            };
+            transactions.push(transaction);
+            updateDisplay();
+            event.target.reset();
+            setDefaultDate();
+        }
+
+        function updateDisplay() {
+            updateBalances();
+            updateTransactionList();
+            updatePartyDropdown();
+        }
+
+        function updateBalances() {
+            const balances = {};
+            transactions.forEach(t => {
+                if (!balances[t.party]) balances[t.party] = 0;
+                balances[t.party] += t.type === 'theyOwe' ? t.amount : -t.amount;
+            });
+
+            const balanceList = document.getElementById('balanceList');
+            balanceList.innerHTML = '';
+            
+            if (Object.keys(balances).length === 0) {
+                const div = document.createElement('div');
+                div.textContent = "Great news! No one owes you anything, and you don't owe anyone. 🎉";
+                div.className = 'text-green-600 font-semibold';
+                balanceList.appendChild(div);
+            } else {
+                for (const [party, balance] of Object.entries(balances)) {
+                    const div = document.createElement('div');
+                    div.className = 'flex justify-between items-center';
+                    const partySpan = document.createElement('span');
+                    partySpan.textContent = party;
+                    const balanceSpan = document.createElement('span');
+                    balanceSpan.textContent = balance.toFixed(2);
+                    balanceSpan.className = balance > 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold';
+                    div.appendChild(partySpan);
+                    div.appendChild(balanceSpan);
+                    balanceList.appendChild(div);
+                }
+            }
+        }
+
+        function updateTransactionList() {
+            const transactionList = document.getElementById('transactionList');
+            transactionList.innerHTML = '';
+            transactions.forEach((t, index) => {
+                const row = transactionList.insertRow();
+                const partyCell = row.insertCell();
+                const partySpan = document.createElement('span');
+                partySpan.textContent = t.party;
+                if (t.party === 'unknown') {
+                    partySpan.classList.add('text-red-500', 'cursor-pointer', 'underline');
+                    partySpan.onclick = () => showUpdatePartyModal(index);
+                }
+                partyCell.appendChild(partySpan);
+                row.insertCell().textContent = t.date;
+                row.insertCell().textContent = t.description;
+                const theyOweCell = row.insertCell();
+                theyOweCell.textContent = t.type === 'theyOwe' ? t.amount.toFixed(2) : '';
+                theyOweCell.className = 'text-right';
+                const iOweCell = row.insertCell();
+                iOweCell.textContent = t.type === 'iOwe' ? t.amount.toFixed(2) : '';
+                iOweCell.className = 'text-right';
+            });
+        }
+
+        function updatePartyDropdown() {
+            const partySelect = document.getElementById('party');
+            const updatePartySelect = document.getElementById('updatePartySelect');
+            [partySelect, updatePartySelect].forEach(select => {
+                select.innerHTML = '';
+                parties.forEach(party => {
+                    const option = document.createElement('option');
+                    option.value = party;
+                    option.textContent = party;
+                    select.appendChild(option);
+                });
+            });
+        }
+
+        function exportData() {
+            const dataStr = JSON.stringify({transactions, parties});
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+            const exportFileDefaultName = 'debt_tracker_data.json';
+
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    transactions = data.transactions || [];
+                    parties = data.parties || [];
+                    transactions.forEach(t => {
+                        if (!parties.includes(t.party)) {
+                            t.party = 'unknown';
+                        }
+                    });
+                    if (parties.length === 0) {
+                        showPartyModal();
+                    } else {
+                        updateDisplay();
+                    }
+                } catch (error) {
+                    alert('Error parsing JSON file');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function showPartyModal() {
+            document.getElementById('partyModal').classList.remove('hidden');
+        }
+
+        function hidePartyModal() {
+            document.getElementById('partyModal').classList.add('hidden');
+        }
+
+        function addNewParty() {
+            const newParty = document.getElementById('newPartyName').value.trim();
+            if (newParty && !parties.includes(newParty)) {
+                parties.push(newParty);
+                updatePartyDropdown();
+                hidePartyModal();
+                document.getElementById('newPartyName').value = '';
+            } else {
+                alert('Please enter a valid and unique party name.');
+            }
+        }
+
+        function showUpdatePartyModal(transactionIndex) {
+            document.getElementById('updatePartyModal').classList.remove('hidden');
+            document.getElementById('updatePartyBtn').onclick = () => updateTransactionParty(transactionIndex);
+        }
+
+        function hideUpdatePartyModal() {
+            document.getElementById('updatePartyModal').classList.add('hidden');
+        }
+
+        function updateTransactionParty(transactionIndex) {
+            const newParty = document.getElementById('updatePartySelect').value;
+            transactions[transactionIndex].party = newParty;
+            hideUpdatePartyModal();
+            updateDisplay();
+        }
+
+        document.getElementById('transactionForm').addEventListener('submit', addTransaction);
+        document.getElementById('exportBtn').addEventListener('click', exportData);
+        document.getElementById('importFile').addEventListener('change', importData);
+        document.getElementById('addPartyBtn').addEventListener('click', showPartyModal);
+        document.getElementById('addNewPartyBtn').addEventListener('click', addNewParty);
+
+        setDefaultDate();
+        updateDisplay();
+    </script>
+</body>
+</html>
